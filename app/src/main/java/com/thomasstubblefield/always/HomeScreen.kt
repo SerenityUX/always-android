@@ -194,9 +194,12 @@ fun HomeScreen(navController: NavController) {
                                     }
                                 },
                                 onClick = {
-                                    showMenu = false
-                                    photoPickerLauncher.launch("image/*")
-                                }
+                                    if (!isUploadingPhoto) {  // Prevent multiple uploads
+                                        showMenu = false
+                                        photoPickerLauncher.launch("image/*")
+                                    }
+                                },
+                                enabled = !isUploadingPhoto  // Disable the button while uploading
                             )
 
                             DropdownMenuItem(

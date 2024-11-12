@@ -21,6 +21,10 @@ import com.thomasstubblefield.always.TokenManager
 import androidx.compose.material3.CircularProgressIndicator
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.material.icons.filled.Close
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +37,8 @@ fun LoginScreen(navController: NavController) {
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var showForgotPasswordModal by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -81,9 +87,17 @@ fun LoginScreen(navController: NavController) {
                         errorMessage = null 
                     },
                     label = { Text("Password") },
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
-                    isError = errorMessage != null
+                    isError = errorMessage != null,
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                            )
+                        }
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -133,30 +147,21 @@ fun LoginScreen(navController: NavController) {
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                TextButton(
+                    onClick = { showForgotPasswordModal = true },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
                 ) {
-                    Text(
-                        "By logging in, you agree to our ",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
-                    
-                    Text(
-                        "Terms and Conditions",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.clickable {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://serenidad.click/hacktime/privacy-toc"))
-                            context.startActivity(intent)
-                        },
-                        textDecoration = TextDecoration.Underline
-                    )
+                    Text("Forgot Password?")
                 }
+            }
+
+            if (showForgotPasswordModal) {
+                ForgotPasswordModal(
+                    onDismiss = { showForgotPasswordModal = false },
+                    email = email
+                )
             }
         }
     )
