@@ -20,7 +20,7 @@ import coil.compose.SubcomposeAsyncImage
 import android.content.Context
 import com.thomasstubblefield.always.TokenManager
 import kotlinx.coroutines.launch
-import com.thomasstubblefield.always.api.AuthResponse
+import com.thomasstubblefield.always.AuthResponse
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,7 +29,7 @@ fun HomeScreen(navController: NavController) {
     val tokenManager = remember { TokenManager(context) }
     val scope = rememberCoroutineScope()
     var showMenu by remember { mutableStateOf(false) }
-    var userData by remember { mutableStateOf<AuthResponse?>(null) }
+    var userData: AuthResponse? by remember { mutableStateOf(null) }
     var isLoading by remember { mutableStateOf(true) }
 
     // Authenticate when the screen loads
@@ -52,7 +52,6 @@ fun HomeScreen(navController: NavController) {
             TopAppBar(
                 title = { Text("Always") },
                 actions = {
-                    // Profile picture and menu
                     Box {
                         IconButton(onClick = { showMenu = !showMenu }) {
                             if (isLoading) {
@@ -76,7 +75,6 @@ fun HomeScreen(navController: NavController) {
                                             )
                                         },
                                         error = {
-                                            // Fallback icon or initial
                                             Surface(
                                                 modifier = Modifier.size(32.dp),
                                                 shape = CircleShape,
@@ -92,7 +90,6 @@ fun HomeScreen(navController: NavController) {
                                         }
                                     )
                                 } ?: run {
-                                    // No profile picture URL, show initial
                                     Surface(
                                         modifier = Modifier.size(32.dp),
                                         shape = CircleShape,
