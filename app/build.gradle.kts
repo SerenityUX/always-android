@@ -40,7 +40,13 @@ android {
 }
 
 dependencies {
-
+    // Remove these lines as they're duplicates or incorrect:
+    // implementation("androidx.navigation:navigation-compose:2.7.7")  // duplicate
+    // implementation("androidx.compose.animation:animation:1.5.0")    // version mismatch
+    // implementation("androidx.navigation:navigation-compose-animation:2.7.7")  // incorrect
+    // implementation("io.coil-kt:coil-compose:2.4.0")  // duplicate with libs.coil
+    implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -50,6 +56,9 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.coil)
+    implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("androidx.compose.animation:animation-graphics-android:1.6.1")
+    // Test implementations remain the same
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -57,5 +66,4 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation("io.coil-kt:coil-compose:2.4.0") // Use the latest version
 }
