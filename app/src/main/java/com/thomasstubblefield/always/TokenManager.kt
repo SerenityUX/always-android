@@ -45,9 +45,9 @@ data class CalendarEvent(
 @Serializable
 data class TeamMember(
     val name: String,
-    val profilePicture: String?,
+    val profilePicture: String? = null,
     val email: String,
-    val roleDescription: String
+    val roleDescription: String? = null
 )
 
 @Serializable
@@ -71,7 +71,11 @@ data class Announcement(
 class TokenManager(private val context: Context) {
     private val prefs = context.getSharedPreferences("TokenPrefs", Context.MODE_PRIVATE)
     private val client = OkHttpClient()
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json { 
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+        explicitNulls = false
+    }
     private val mediaType = "application/json; charset=utf-8".toMediaType()
     private val baseUrl = "https://serenidad.click/hacktime"
     
@@ -119,27 +123,39 @@ class TokenManager(private val context: Context) {
     suspend fun authenticate(): Result<AuthResponse> = withContext(Dispatchers.IO) {
         try {
             val token = getToken() ?: return@withContext Result.failure(Exception("No token found"))
+            println("Attempting to authenticate with token: $token")
             
             val requestBody = json.encodeToString(
                 mapOf("token" to token)
             ).toRequestBody(mediaType)
 
-            val request =
-                Request.Builder()
-                    .url("$baseUrl/authenticate")
-                    .post(requestBody)
-                    .build()
+            val request = Request.Builder()
+                .url("$baseUrl/auth")
+                .post(requestBody)
+                .build()
 
             val response = client.newCall(request).execute()
             val responseBody = response.body?.string()
+            
+            println("Auth response code: ${response.code}")
+            println("Auth response body: $responseBody")
 
             if (response.isSuccessful && responseBody != null) {
-                val authResponse = json.decodeFromString<AuthResponse>(responseBody)
-                Result.success(authResponse)
+                try {
+                    val authResponse = json.decodeFromString<AuthResponse>(responseBody)
+                    println("Successfully parsed auth response")
+                    Result.success(authResponse)
+                } catch (e: Exception) {
+                    println("JSON parsing error: ${e.message}")
+                    println("Use 'coerceInputValues = true' in 'Json {}' builder to coerce nulls to default values.")
+                    println("JSON input: ${responseBody.take(100)}.....")
+                    Result.failure(e)
+                }
             } else {
                 Result.failure(Exception(responseBody ?: "Unknown error"))
             }
         } catch (e: Exception) {
+            println("Auth error: ${e.message}")
             Result.failure(e)
         }
     }
