@@ -22,6 +22,20 @@ import com.thomasstubblefield.always.TokenManager
 import kotlinx.coroutines.launch
 import com.thomasstubblefield.always.AuthResponse
 import androidx.compose.ui.unit.Dp
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.MediaType
+import okhttp3.RequestBody
+import java.io.IOException
 
 @Composable
 fun ProfilePicture(
@@ -82,6 +96,31 @@ fun HomeScreen(navController: NavController) {
     var showMenu by remember { mutableStateOf(false) }
     var userData: AuthResponse? by remember { mutableStateOf(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var isUploadingPhoto by remember { mutableStateOf(false) }
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            scope.launch {
+                isUploadingPhoto = true
+                try {
+                    val file = createTempFileFromUri(context, uri)
+                    val newProfilePictureUrl = uploadProfilePicture(file, tokenManager.getToken() ?: "")
+                    // Re-authenticate to get updated user data
+                    tokenManager.authenticate()
+                        .onSuccess { response ->
+                            userData = response
+                        }
+                } catch (e: Exception) {
+                    // TODO: Show error to user
+                    println("Profile picture upload error: ${e.message}")
+                } finally {
+                    isUploadingPhoto = false
+                }
+            }
+        }
+    }
 
     // Authenticate when the screen loads
     LaunchedEffect(Unit) {
@@ -140,10 +179,23 @@ fun HomeScreen(navController: NavController) {
                             )
 
                             DropdownMenuItem(
-                                text = { Text("Update Avatar") },
+                                text = { 
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Update Avatar")
+                                        if (isUploadingPhoto) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                        }
+                                    }
+                                },
                                 onClick = {
-                                    // TODO: Implement avatar update
                                     showMenu = false
+                                    photoPickerLauncher.launch("image/*")
                                 }
                             )
 
@@ -208,4 +260,42 @@ fun HomeScreen(navController: NavController) {
             }
         }
     }
+}
+
+// Add these helper functions outside the HomeScreen composable
+private suspend fun createTempFileFromUri(context: Context, uri: Uri): File = withContext(Dispatchers.IO) {
+    val stream = context.contentResolver.openInputStream(uri)
+    val file = File.createTempFile("profile_picture", ".jpg", context.cacheDir)
+    stream?.use { input ->
+        file.outputStream().use { output ->
+            input.copyTo(output)
+        }
+    }
+    file
+}
+
+private suspend fun uploadProfilePicture(file: File, token: String): String = withContext(Dispatchers.IO) {
+    val client = OkHttpClient()
+    
+    val requestBody = MultipartBody.Builder()
+        .setType(MultipartBody.FORM)
+        .addFormDataPart("token", token)
+        .addFormDataPart(
+            "profilePicture",
+            file.name,
+            file.asRequestBody("image/*".toMediaType())
+        )
+        .build()
+
+    val request = Request.Builder()
+        .url("https://serenidad.click/hacktime/changeProfilePicture")
+        .post(requestBody)
+        .build()
+
+    val response = client.newCall(request).execute()
+    if (!response.isSuccessful) {
+        throw Exception("Unexpected code ${response.code}")
+    }
+
+    response.body?.string() ?: throw Exception("Empty response")
 } 
