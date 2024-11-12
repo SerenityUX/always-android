@@ -159,4 +159,16 @@ class TokenManager(private val context: Context) {
             Result.failure(e)
         }
     }
+
+    fun saveSelectedEventId(eventId: String) {
+        prefs.edit().putString("selected_event_id", eventId).apply()
+    }
+    
+    fun getSelectedEventId(): String? {
+        return prefs.getString("selected_event_id", null)
+    }
+    
+    fun clearSelectedEventId() {
+        prefs.edit().remove("selected_event_id").apply()
+    }
 } 

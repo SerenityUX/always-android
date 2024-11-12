@@ -36,6 +36,9 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.MediaType
 import okhttp3.RequestBody
 import java.io.IOException
+import com.thomasstubblefield.always.Event
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 
 @Composable
 fun ProfilePicture(
@@ -97,7 +100,8 @@ fun HomeScreen(navController: NavController) {
     var userData: AuthResponse? by remember { mutableStateOf(null) }
     var isLoading by remember { mutableStateOf(true) }
     var isUploadingPhoto by remember { mutableStateOf(false) }
-
+    var selectedEvent by remember { mutableStateOf<Map.Entry<String, Event>?>(null) }
+    var showEventPicker by remember { mutableStateOf(false) }
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -127,6 +131,16 @@ fun HomeScreen(navController: NavController) {
         tokenManager.authenticate()
             .onSuccess { response ->
                 userData = response
+                // Try to restore the previously selected event, fall back to first event if none saved
+                val savedEventId = tokenManager.getSelectedEventId()
+                selectedEvent = if (savedEventId != null) {
+                    response.events?.entries?.find { it.key == savedEventId }
+                } else {
+                    response.events?.entries?.firstOrNull()
+                }?.also { event ->
+                    // Save the event ID in case we fell back to the first event
+                    tokenManager.saveSelectedEventId(event.key)
+                }
             }
             .onFailure {
                 // If auth fails, navigate back to onboarding
@@ -173,8 +187,8 @@ fun HomeScreen(navController: NavController) {
                             DropdownMenuItem(
                                 text = { Text("Swap Events") },
                                 onClick = {
-                                    // TODO: Implement event swapping
                                     showMenu = false
+                                    showEventPicker = true
                                 }
                             )
 
@@ -206,6 +220,7 @@ fun HomeScreen(navController: NavController) {
                                 text = { Text("Logout") },
                                 onClick = {
                                     tokenManager.deleteToken()
+                                    tokenManager.clearSelectedEventId()  // Clear the selected event
                                     navController.navigate("onboarding") {
                                         popUpTo(0) { inclusive = true }
                                     }
@@ -247,21 +262,52 @@ fun HomeScreen(navController: NavController) {
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                Text (
-                    text="schedule here"
+                Text(
+                    text = "${selectedEvent?.value?.title ?: "No event"}'s schedule here",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.padding(16.dp)
                 )
-                // userData?.let { data ->
-                //     // Display user data and events
-                //     Text(
-                //         text = "Welcome, ${data.name}",
-                //         style = MaterialTheme.typography.headlineMedium,
-                //         modifier = Modifier.padding(16.dp)
-                //     )
-                    
-                //     // Add your events list here
-                // }
             }
         }
+    }
+
+    if (showEventPicker) {
+        AlertDialog(
+            onDismissRequest = { showEventPicker = false },
+            title = { Text("Select Event") },
+            text = {
+                Column {
+                    userData?.events?.entries?.forEach { event ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    selectedEvent = event
+                                    tokenManager.saveSelectedEventId(event.key)  // Save the selection
+                                    showEventPicker = false
+                                }
+                                .padding(vertical = 12.dp, horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(event.value.title)
+                            if (event.key == selectedEvent?.key) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    } ?: Text("No events available")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showEventPicker = false }) {
+                    Text("Close")
+                }
+            }
+        )
     }
 }
 
