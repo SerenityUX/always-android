@@ -21,6 +21,57 @@ import android.content.Context
 import com.thomasstubblefield.always.TokenManager
 import kotlinx.coroutines.launch
 import com.thomasstubblefield.always.AuthResponse
+import androidx.compose.ui.unit.Dp
+
+@Composable
+fun ProfilePicture(
+    url: String?,
+    name: String,
+    size: Dp = 56.dp,
+    modifier: Modifier = Modifier
+) {
+    if (url != null) {
+        SubcomposeAsyncImage(
+            model = url,
+            contentDescription = "Profile picture of $name",
+            modifier = modifier
+                .size(size)
+                .clip(CircleShape),
+            contentScale = ContentScale.Crop,
+            loading = {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(size / 2),
+                    strokeWidth = 2.dp
+                )
+            },
+            error = {
+                ProfileInitial(name = name, size = size)
+            }
+        )
+    } else {
+        ProfileInitial(name = name, size = size)
+    }
+}
+
+@Composable
+private fun ProfileInitial(
+    name: String,
+    size: Dp,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.size(size),
+        shape = CircleShape,
+        color = Color.LightGray
+    ) {
+        Text(
+            text = name.firstOrNull()?.uppercase() ?: "?",
+            modifier = Modifier.wrapContentSize(),
+            style = MaterialTheme.typography.titleLarge,
+            color = Color.DarkGray
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,66 +101,52 @@ fun HomeScreen(navController: NavController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Always") },
+                title = { 
+                    Text(
+                        "Always",
+                        style = MaterialTheme.typography.headlineLarge
+                    ) 
+                },
                 actions = {
                     Box {
                         IconButton(onClick = { showMenu = !showMenu }) {
                             if (isLoading) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
+                                    modifier = Modifier.size(32.dp),
                                     strokeWidth = 2.dp
                                 )
                             } else {
-                                userData?.profile_picture_url?.let { url ->
-                                    SubcomposeAsyncImage(
-                                        model = url,
-                                        contentDescription = "Profile picture",
-                                        modifier = Modifier
-                                            .size(32.dp)
-                                            .clip(CircleShape),
-                                        contentScale = ContentScale.Crop,
-                                        loading = {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(16.dp),
-                                                strokeWidth = 2.dp
-                                            )
-                                        },
-                                        error = {
-                                            Surface(
-                                                modifier = Modifier.size(32.dp),
-                                                shape = CircleShape,
-                                                color = MaterialTheme.colorScheme.primary
-                                            ) {
-                                                Text(
-                                                    text = userData?.name?.firstOrNull()?.uppercase() ?: "?",
-                                                    modifier = Modifier.wrapContentSize(),
-                                                    style = MaterialTheme.typography.titleMedium,
-                                                    color = Color.White
-                                                )
-                                            }
-                                        }
+                                userData?.let { user ->
+                                    ProfilePicture(
+                                        url = user.profile_picture_url,
+                                        name = user.name,
+                                        size = 56.dp
                                     )
-                                } ?: run {
-                                    Surface(
-                                        modifier = Modifier.size(32.dp),
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.primary
-                                    ) {
-                                        Text(
-                                            text = userData?.name?.firstOrNull()?.uppercase() ?: "?",
-                                            modifier = Modifier.wrapContentSize(),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = Color.White
-                                        )
-                                    }
                                 }
                             }
                         }
 
                         DropdownMenu(
                             expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier.width(200.dp)
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Swap Events") },
+                                onClick = {
+                                    // TODO: Implement event swapping
+                                    showMenu = false
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Update Avatar") },
+                                onClick = {
+                                    // TODO: Implement avatar update
+                                    showMenu = false
+                                }
+                            )
+
                             DropdownMenuItem(
                                 text = { Text("Logout") },
                                 onClick = {
@@ -117,6 +154,19 @@ fun HomeScreen(navController: NavController) {
                                     navController.navigate("onboarding") {
                                         popUpTo(0) { inclusive = true }
                                     }
+                                    showMenu = false
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { 
+                                    Text(
+                                        "Delete Account",
+                                        color = Color.Red
+                                    )
+                                },
+                                onClick = {
+                                    // TODO: Implement account deletion
                                     showMenu = false
                                 }
                             )
@@ -142,16 +192,19 @@ fun HomeScreen(navController: NavController) {
                     .fillMaxSize()
                     .padding(paddingValues)
             ) {
-                userData?.let { data ->
-                    // Display user data and events
-                    Text(
-                        text = "Welcome, ${data.name}",
-                        style = MaterialTheme.typography.headlineMedium,
-                        modifier = Modifier.padding(16.dp)
-                    )
+                Text (
+                    text="schedule here"
+                )
+                // userData?.let { data ->
+                //     // Display user data and events
+                //     Text(
+                //         text = "Welcome, ${data.name}",
+                //         style = MaterialTheme.typography.headlineMedium,
+                //         modifier = Modifier.padding(16.dp)
+                //     )
                     
-                    // Add your events list here
-                }
+                //     // Add your events list here
+                // }
             }
         }
     }
