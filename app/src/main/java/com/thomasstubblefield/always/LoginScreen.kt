@@ -18,14 +18,21 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.thomasstubblefield.always.TokenManager
+import androidx.compose.material3.CircularProgressIndicator
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(navController: NavController) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
+    val scope = rememberCoroutineScope()
+    
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -45,30 +52,65 @@ fun LoginScreen(navController: NavController) {
                     .padding(paddingValues)
                     .padding(horizontal = 16.dp)
             ) {
+                // Show error message if exists
+                errorMessage?.let { error ->
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+
                 OutlinedTextField(
                     value = email,
-                    onValueChange = { email = it },
+                    onValueChange = { 
+                        email = it
+                        errorMessage = null 
+                    },
                     label = { Text("Email") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = errorMessage != null
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
                     value = password,
-                    onValueChange = { password = it },
+                    onValueChange = { 
+                        password = it
+                        errorMessage = null 
+                    },
                     label = { Text("Password") },
                     visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    isError = errorMessage != null
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
-                    onClick = { 
-                        tokenManager.saveToken("SampleToken")
-                        navController.navigate("main") {
-                            popUpTo("onboarding") { inclusive = true }
+                    onClick = {
+                        scope.launch {
+                            isLoading = true
+                            errorMessage = null
+                            
+                            tokenManager.login(email, password)
+                                .onSuccess {
+                                    navController.navigate("main") {
+                                        popUpTo("onboarding") { inclusive = true }
+                                    }
+                                }
+                                .onFailure { error ->
+                                    errorMessage = when {
+                                        error.message?.contains("Invalid credentials") == true -> 
+                                            "Invalid email or password"
+                                        error.message?.contains("Server error") == true ->
+                                            "Server error. Please try again later."
+                                        else -> "An error occurred. Please try again."
+                                    }
+                                }
+                            
+                            isLoading = false
                         }
                     },
                     modifier = Modifier
@@ -78,9 +120,17 @@ fun LoginScreen(navController: NavController) {
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = Color.White
-                    )
+                    ),
+                    enabled = !isLoading && email.isNotBlank() && password.isNotBlank()
                 ) {
-                    Text("Submit", style = MaterialTheme.typography.titleMedium)
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Text("Submit", style = MaterialTheme.typography.titleMedium)
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

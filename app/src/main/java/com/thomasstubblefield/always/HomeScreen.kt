@@ -19,98 +19,141 @@ import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
 import android.content.Context
 import com.thomasstubblefield.always.TokenManager
+import kotlinx.coroutines.launch
+import com.thomasstubblefield.always.api.AuthResponse
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(navController: NavController) {
     val context = LocalContext.current
     val tokenManager = remember { TokenManager(context) }
+    val scope = rememberCoroutineScope()
     var showMenu by remember { mutableStateOf(false) }
+    var userData by remember { mutableStateOf<AuthResponse?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
 
-    Scaffold { innerPadding ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp)
-                .height(56.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "Always",
-                style = MaterialTheme.typography.headlineLarge,
-                modifier = Modifier.align(Alignment.CenterVertically)
-            )
+    // Authenticate when the screen loads
+    LaunchedEffect(Unit) {
+        tokenManager.authenticate()
+            .onSuccess { response ->
+                userData = response
+            }
+            .onFailure {
+                // If auth fails, navigate back to onboarding
+                navController.navigate("onboarding") {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        isLoading = false
+    }
 
-            Box(
-                modifier = Modifier.align(Alignment.CenterVertically)
-            ) {
-                SubcomposeAsyncImage(
-                    model = "https://kodan-cdn.s3.amazonaws.com/profile-pictures/b999a181b8a630382adb68ff8c745d3a02047f976bcd825841c10593baba321f-1730239520033.jpeg",
-                    contentDescription = "Profile picture",
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = rememberRipple(bounded = false),
-                            onClick = { showMenu = true }
-                        ),
-                    contentScale = ContentScale.Crop,
-                    loading = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.LightGray)
-                        )
-                    },
-                    error = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.LightGray)
-                        )
-                    }
-                )
-                
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .width(200.dp)
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Swap Event") },
-                        onClick = { 
-                            println("Swap Event clicked")
-                            showMenu = false
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Update Avatar") },
-                        onClick = { 
-                            println("Update Avatar clicked")
-                            showMenu = false
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Logout") },
-                        onClick = { 
-                            tokenManager.deleteToken()
-                            navController.navigate("onboarding") {
-                                popUpTo("main") { inclusive = true }
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Always") },
+                actions = {
+                    // Profile picture and menu
+                    Box {
+                        IconButton(onClick = { showMenu = !showMenu }) {
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                userData?.profile_picture_url?.let { url ->
+                                    SubcomposeAsyncImage(
+                                        model = url,
+                                        contentDescription = "Profile picture",
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape),
+                                        contentScale = ContentScale.Crop,
+                                        loading = {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                        },
+                                        error = {
+                                            // Fallback icon or initial
+                                            Surface(
+                                                modifier = Modifier.size(32.dp),
+                                                shape = CircleShape,
+                                                color = MaterialTheme.colorScheme.primary
+                                            ) {
+                                                Text(
+                                                    text = userData?.name?.firstOrNull()?.uppercase() ?: "?",
+                                                    modifier = Modifier.wrapContentSize(),
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = Color.White
+                                                )
+                                            }
+                                        }
+                                    )
+                                } ?: run {
+                                    // No profile picture URL, show initial
+                                    Surface(
+                                        modifier = Modifier.size(32.dp),
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primary
+                                    ) {
+                                        Text(
+                                            text = userData?.name?.firstOrNull()?.uppercase() ?: "?",
+                                            modifier = Modifier.wrapContentSize(),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
                             }
-                            showMenu = false
                         }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Delete Account", color = Color.Red) },
-                        onClick = { 
-                            println("Delete Account clicked")
-                            showMenu = false
+
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Logout") },
+                                onClick = {
+                                    tokenManager.deleteToken()
+                                    navController.navigate("onboarding") {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                    showMenu = false
+                                }
+                            )
                         }
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            // Your main content here
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                userData?.let { data ->
+                    // Display user data and events
+                    Text(
+                        text = "Welcome, ${data.name}",
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(16.dp)
                     )
+                    
+                    // Add your events list here
                 }
             }
         }
