@@ -12,14 +12,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
+import android.content.Context
+import com.thomasstubblefield.always.TokenManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(navController: NavController) {
+    val context = LocalContext.current
+    val tokenManager = remember { TokenManager(context) }
     var showMenu by remember { mutableStateOf(false) }
 
     Scaffold { innerPadding ->
@@ -92,6 +97,7 @@ fun HomeScreen(navController: NavController) {
                     DropdownMenuItem(
                         text = { Text("Logout") },
                         onClick = { 
+                            tokenManager.deleteToken()
                             navController.navigate("onboarding") {
                                 popUpTo("main") { inclusive = true }
                             }

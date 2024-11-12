@@ -56,11 +56,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        val tokenManager = TokenManager(this)
+        
         setContent {
             AlwaysTheme {
                 val navController = rememberNavController()
                 
-                NavHost(navController = navController, startDestination = "main") {
+                NavHost(
+                    navController = navController, 
+                    startDestination = if (tokenManager.getToken() != null) "main" else "onboarding"
+                ) {
                     composable(
                         "main",
                         enterTransition = {
