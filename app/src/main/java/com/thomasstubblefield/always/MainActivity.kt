@@ -120,6 +120,18 @@ class MainActivity : ComponentActivity() {
                     ) {
                         LoginScreen(navController)
                     }
+                    
+                    composable(
+                        "signup",
+                        enterTransition = {
+                            slideIn(tween(300)) { IntOffset(it.width, 0) }
+                        },
+                        exitTransition = {
+                            slideOut(tween(300)) { IntOffset(-it.width, 0) }
+                        }
+                    ) {
+                        SignupScreen(navController)
+                    }
                 }
             }
         }

@@ -70,7 +70,7 @@ fun LoginScreen(navController: NavController) {
                 OutlinedTextField(
                     value = email,
                     onValueChange = { 
-                        email = it
+                        email = it.trim()
                         errorMessage = null 
                     },
                     label = { Text("Email") },

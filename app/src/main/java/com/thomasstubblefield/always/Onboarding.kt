@@ -58,7 +58,7 @@ fun OnboardingScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(16.dp))
             
             OutlinedButton(
-                onClick = { /* TODO: Handle signup */ },
+                onClick = { navController.navigate("signup") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),

@@ -171,4 +171,60 @@ class TokenManager(private val context: Context) {
     fun clearSelectedEventId() {
         prefs.edit().remove("selected_event_id").apply()
     }
+
+    suspend fun signup(email: String, password: String, name: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val requestBody = json.encodeToString(
+                mapOf(
+                    "email" to email,
+                    "password" to password,
+                    "name" to name
+                )
+            ).toRequestBody(mediaType)
+
+            val request = Request.Builder()
+                .url("$baseUrl/signup")
+                .post(requestBody)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+
+            if (response.isSuccessful && responseBody != null) {
+                val signupResponse = json.decodeFromString<Map<String, String>>(responseBody)
+                saveToken(signupResponse["token"] ?: throw Exception("No token in response"))
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(responseBody ?: "Unknown error"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteAccount(): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val token = getToken() ?: return@withContext Result.failure(Exception("No token found"))
+            
+            val requestBody = json.encodeToString(
+                mapOf("token" to token)
+            ).toRequestBody(mediaType)
+
+            val request = Request.Builder()
+                .url("$baseUrl/deleteAccount")
+                .delete(requestBody)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(responseBody ?: "Unknown error"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 } 

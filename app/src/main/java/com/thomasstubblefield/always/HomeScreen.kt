@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.Dp
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -39,6 +40,22 @@ import java.io.IOException
 import com.thomasstubblefield.always.Event
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun ProfilePicture(
@@ -102,6 +119,8 @@ fun HomeScreen(navController: NavController) {
     var isUploadingPhoto by remember { mutableStateOf(false) }
     var selectedEvent by remember { mutableStateOf<Map.Entry<String, Event>?>(null) }
     var showEventPicker by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var isDeletingAccount by remember { mutableStateOf(false) }
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -151,6 +170,34 @@ fun HomeScreen(navController: NavController) {
         isLoading = false
     }
 
+    val blockHeight = 72.dp // Define the block height
+
+    fun generateTimeSlots(startTime: LocalDateTime, stopTime: LocalDateTime): List<String> {
+        val formatter = DateTimeFormatter.ofPattern("EEE\nh a")
+        val times = mutableListOf<String>()
+        var current = startTime.truncatedTo(ChronoUnit.HOURS)
+        var lastDay = ""
+
+        while (current <= stopTime) {
+            val day = current.format(DateTimeFormatter.ofPattern("EEE"))
+            val time = current.format(DateTimeFormatter.ofPattern("h a"))
+            if (day != lastDay) {
+                times.add("$day\n$time")
+                lastDay = day
+            } else {
+                times.add(time)
+            }
+            current = current.plusHours(1)
+        }
+
+        return times
+    }
+
+    val startTime = LocalDateTime.of(2024, 11, 22, 9, 0) // November 22nd, 2024, 9 AM
+    val stopTime = LocalDateTime.of(2024, 11, 24, 17, 0) // November 24th, 2024, 5 PM
+
+    val timeSlots = generateTimeSlots(startTime, stopTime)
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -184,13 +231,6 @@ fun HomeScreen(navController: NavController) {
                             onDismissRequest = { showMenu = false },
                             modifier = Modifier.width(200.dp)
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Swap Events") },
-                                onClick = {
-                                    showMenu = false
-                                    showEventPicker = true
-                                }
-                            )
 
                             DropdownMenuItem(
                                 text = { 
@@ -213,31 +253,79 @@ fun HomeScreen(navController: NavController) {
                                         photoPickerLauncher.launch("image/*")
                                     }
                                 },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector =Icons.Filled.AccountCircle,
+                                        contentDescription = "Profile Picture"
+                                    )
+                                },
                                 enabled = !isUploadingPhoto  // Disable the button while uploading
                             )
+                            
+                            DropdownMenuItem(
+                                text = { Text("Swap Events") },
+                                onClick = {
+                                    showMenu = false
+                                    showEventPicker = true
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.SwapHoriz,
+                                        contentDescription = "Swap Events"
+                                    )
+                                }
+                            )
+
+
 
                             DropdownMenuItem(
                                 text = { Text("Logout") },
                                 onClick = {
-                                    tokenManager.deleteToken()
-                                    tokenManager.clearSelectedEventId()  // Clear the selected event
-                                    navController.navigate("onboarding") {
-                                        popUpTo(0) { inclusive = true }
-                                    }
                                     showMenu = false
+                                    scope.launch {
+                                        tokenManager.deleteToken()
+                                        tokenManager.clearSelectedEventId()
+                                        navController.navigate("onboarding") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Logout,
+                                        contentDescription = "Logout"
+                                    )
                                 }
                             )
 
                             DropdownMenuItem(
                                 text = { 
-                                    Text(
-                                        "Delete Account",
-                                        color = Color.Red
-                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            "Delete Account",
+                                            color = Color.Red
+                                        )
+                                        if (isDeletingAccount) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(16.dp),
+                                                strokeWidth = 2.dp
+                                            )
+                                        }
+                                    }
                                 },
                                 onClick = {
-                                    // TODO: Implement account deletion
                                     showMenu = false
+                                    showDeleteConfirmation = true
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete Account",
+                                        tint = Color.Red
+                                    )
                                 }
                             )
                         }
@@ -246,27 +334,74 @@ fun HomeScreen(navController: NavController) {
             )
         }
     ) { paddingValues ->
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else {
-            // Your main content here
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            ) {
-                Text(
-                    text = "${selectedEvent?.value?.title ?: "No event"}'s schedule here",
-                    style = MaterialTheme.typography.headlineMedium,
-                    modifier = Modifier.padding(16.dp)
-                )
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                // Your main content here
+                Box(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        itemsIndexed(timeSlots) { index, time ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(blockHeight)
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(50.dp)
+                                        .height(blockHeight),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = time,
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Color.Gray,
+                                            lineHeight = 12.sp
+                                        ),
+                                        maxLines = 2
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                HorizontalDivider(
+                                    color = Color.Gray,
+                                    thickness = 1.dp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+
+//                    // Overlay Text
+//                    Text(
+//                        text = "Overlay Text",
+//                        modifier = Modifier
+//                            .absoluteOffset(x = 0.dp, y = 0.dp)
+//                            .zIndex(1f),
+//                        style = MaterialTheme.typography.bodySmall.copy(
+//                            color = Color.Black
+//                        )
+//                    )
+                }
             }
         }
     }
@@ -305,6 +440,57 @@ fun HomeScreen(navController: NavController) {
             confirmButton = {
                 TextButton(onClick = { showEventPicker = false }) {
                     Text("Close")
+                }
+            }
+        )
+    }
+
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete Account?") },
+            text = { 
+                Text(
+                    "This action cannot be undone. All your data, including events, " +
+                    "tasks, and profile information will be permanently deleted."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            isDeletingAccount = true
+                            try {
+                                tokenManager.deleteAccount()
+                                // On success, clear local data and navigate to onboarding
+                                tokenManager.deleteToken()
+                                tokenManager.clearSelectedEventId()
+                                navController.navigate("onboarding") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            } catch (e: Exception) {
+                                // TODO: Show error to user
+                                println("Delete account error: ${e.message}")
+                            } finally {
+                                isDeletingAccount = false
+                                showDeleteConfirmation = false
+                            }
+                        }
+                    },
+                    enabled = !isDeletingAccount,
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color.Red
+                    )
+                ) {
+                    Text("Delete Account")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showDeleteConfirmation = false },
+                    enabled = !isDeletingAccount
+                ) {
+                    Text("Cancel")
                 }
             }
         )
