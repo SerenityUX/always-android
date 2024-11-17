@@ -184,7 +184,7 @@ fun HomeScreen(navController: NavController) {
         isLoading = false
     }
 
-    val blockHeight = 72.dp // Define the block height
+    val blockHeight = 91.dp // Define the block height
 
     fun generateTimeSlots(startTime: LocalDateTime, stopTime: LocalDateTime): List<String> {
         val formatter = DateTimeFormatter.ofPattern("EEE\nh a")
@@ -212,8 +212,22 @@ fun HomeScreen(navController: NavController) {
 
     val timeSlots = generateTimeSlots(startTime, stopTime)
 
-    val chipItems = listOf("Schedule", "You", "Dieter", "Sam", "Dev", "Nila", "Vela", "JC")
+    // Create chip list with "Schedule" and "You" as initial items
+    val chipItems = remember(selectedEvent) {
+        buildList {
+            add("Schedule")
+            add("You")
+            selectedEvent?.value?.teamMembers?.forEach { member ->
+                add(member.name)
+            }
+        }
+    }
     var selectedChipIndex by remember { mutableStateOf(0) }
+
+    // Reset to "Schedule" whenever selected event changes
+    LaunchedEffect(selectedEvent?.key) {
+        selectedChipIndex = 0
+    }
 
     val chipListState = rememberLazyListState()
 
@@ -370,17 +384,15 @@ fun HomeScreen(navController: NavController) {
                     }
                 )
                 LazyRow(
-                    state = chipListState,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(chipItems.size) { index ->
-                        val chip = chipItems[index]
+                    itemsIndexed(chipItems) { index, text ->
                         Chip(
-                            text = chip,
-                            isSelected = index == selectedChipIndex,
+                            text = text,
+                            isSelected = selectedChipIndex == index,
                             onClick = { selectedChipIndex = index }
                         )
                     }
