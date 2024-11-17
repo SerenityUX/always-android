@@ -47,6 +47,7 @@ dependencies {
     // implementation("androidx.navigation:navigation-compose-animation:2.7.7")  // incorrect
     // implementation("io.coil-kt:coil-compose:2.4.0")  // duplicate with libs.coil
     implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation("androidx.compose.foundation:foundation:1.6.0")
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

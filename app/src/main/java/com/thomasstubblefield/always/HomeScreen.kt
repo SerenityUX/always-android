@@ -57,6 +57,19 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import java.time.format.DateTimeFormatter
+import androidx.compose.ui.input.pointer.pointerInput
+import android.view.MotionEvent
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInteropFilter
+import kotlin.math.abs
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 
 @Composable
 fun ProfilePicture(
@@ -108,7 +121,7 @@ private fun ProfileInitial(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun HomeScreen(navController: NavController) {
     val context = LocalContext.current
@@ -200,7 +213,26 @@ fun HomeScreen(navController: NavController) {
     val timeSlots = generateTimeSlots(startTime, stopTime)
 
     val chipItems = listOf("Schedule", "You", "Dieter", "Sam", "Dev", "Nila", "Vela", "JC")
-    var selectedChip by remember { mutableStateOf(chipItems.first()) }
+    var selectedChipIndex by remember { mutableStateOf(0) }
+
+    val chipListState = rememberLazyListState()
+
+    LaunchedEffect(selectedChipIndex) {
+        // Get the visible items info
+        val visibleItems = chipListState.layoutInfo.visibleItemsInfo
+        val selectedItemVisible = visibleItems.any { 
+            it.index == selectedChipIndex && 
+            it.offset >= 0 && // not cut off at start
+            (it.offset + it.size) <= chipListState.layoutInfo.viewportEndOffset // not cut off at end
+        }
+        
+        // Scroll if the selected item isn't fully visible
+        if (!selectedItemVisible) {
+            chipListState.animateScrollToItem(selectedChipIndex)
+        }
+    }
+
+    var touchX by remember { mutableStateOf(0f) }
 
     Scaffold(
         topBar = {
@@ -338,6 +370,7 @@ fun HomeScreen(navController: NavController) {
                     }
                 )
                 LazyRow(
+                    state = chipListState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -347,18 +380,47 @@ fun HomeScreen(navController: NavController) {
                         val chip = chipItems[index]
                         Chip(
                             text = chip,
-                            isSelected = chip == selectedChip,
-                            onClick = { selectedChip = chip }
+                            isSelected = index == selectedChipIndex,
+                            onClick = { selectedChipIndex = index }
                         )
                     }
                 }
             }
         }
     ) { paddingValues ->
+        val haptics = LocalHapticFeedback.current
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .padding(
+                    start = paddingValues.calculateStartPadding(LayoutDirection.Ltr),
+                    end = paddingValues.calculateEndPadding(LayoutDirection.Ltr),
+                    top = paddingValues.calculateTopPadding()
+                )
+                .pointerInteropFilter { event ->
+                    when (event.action) {
+                        MotionEvent.ACTION_DOWN -> {
+                            touchX = event.x
+                            true
+                        }
+                        MotionEvent.ACTION_UP -> {
+                            val deltaX = event.x - touchX
+                            when {
+                                deltaX > 50 && selectedChipIndex > 0 -> {
+                                    selectedChipIndex--
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                }
+                                deltaX < -50 && selectedChipIndex < chipItems.size - 1 -> {
+                                    selectedChipIndex++
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                }
+                            }
+                            true
+                        }
+                        else -> true
+                    }
+                }
         ) {
             if (isLoading) {
                 Box(
@@ -558,18 +620,25 @@ private suspend fun uploadProfilePicture(file: File, token: String): String = wi
 
 @Composable
 fun Chip(text: String, isSelected: Boolean, onClick: () -> Unit) {
+    val textColor = if (isSelected) Color.White else Color.Gray.copy(alpha = 0.6f)
+    
+    // Animate the color changes
+    val animatedColor = animateColorAsState(
+        targetValue = textColor,
+        animationSpec = tween(durationMillis = 300)
+    )
+
     Surface(
         modifier = Modifier
-            .clickable(onClick = onClick)
-            .padding(2.dp),
+            .clickable(onClick = onClick),
         shape = CircleShape,
         color = if (isSelected) Color.Black else Color.Transparent,
-        border = if (!isSelected) BorderStroke(1.dp, Color.Gray) else null
+        border = if (!isSelected) BorderStroke(1.dp, textColor) else null
     ) {
         Text(
             text = text,
-            color = if (isSelected) Color.White else Color.Gray,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+            color = animatedColor.value,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
         )
     }
 } 
