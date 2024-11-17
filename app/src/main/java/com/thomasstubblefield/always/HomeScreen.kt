@@ -70,6 +70,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import com.thomasstubblefield.always.components.TabBar
+import com.thomasstubblefield.always.components.Timeline
 
 @Composable
 fun ProfilePicture(
@@ -184,66 +186,12 @@ fun HomeScreen(navController: NavController) {
         isLoading = false
     }
 
-    val blockHeight = 91.dp // Define the block height
-
-    fun generateTimeSlots(startTime: LocalDateTime, stopTime: LocalDateTime): List<String> {
-        val formatter = DateTimeFormatter.ofPattern("EEE\nh a")
-        val times = mutableListOf<String>()
-        var current = startTime.truncatedTo(ChronoUnit.HOURS)
-        var lastDay = ""
-
-        while (current <= stopTime) {
-            val day = current.format(DateTimeFormatter.ofPattern("EEE"))
-            val time = current.format(DateTimeFormatter.ofPattern("h a"))
-            if (day != lastDay) {
-                times.add("$day\n$time")
-                lastDay = day
-            } else {
-                times.add(time)
-            }
-            current = current.plusHours(1)
-        }
-
-        return times
-    }
-
-    val startTime = LocalDateTime.of(2024, 11, 22, 9, 0) // November 22nd, 2024, 9 AM
-    val stopTime = LocalDateTime.of(2024, 11, 24, 17, 0) // November 24th, 2024, 5 PM
-
-    val timeSlots = generateTimeSlots(startTime, stopTime)
-
-    // Create chip list with "Schedule" and "You" as initial items
-    val chipItems = remember(selectedEvent) {
-        buildList {
-            add("Schedule")
-            add("You")
-            selectedEvent?.value?.teamMembers?.forEach { member ->
-                add(member.name)
-            }
-        }
-    }
     var selectedChipIndex by remember { mutableStateOf(0) }
+    var chipCount by remember { mutableStateOf(0) }
 
     // Reset to "Schedule" whenever selected event changes
     LaunchedEffect(selectedEvent?.key) {
         selectedChipIndex = 0
-    }
-
-    val chipListState = rememberLazyListState()
-
-    LaunchedEffect(selectedChipIndex) {
-        // Get the visible items info
-        val visibleItems = chipListState.layoutInfo.visibleItemsInfo
-        val selectedItemVisible = visibleItems.any { 
-            it.index == selectedChipIndex && 
-            it.offset >= 0 && // not cut off at start
-            (it.offset + it.size) <= chipListState.layoutInfo.viewportEndOffset // not cut off at end
-        }
-        
-        // Scroll if the selected item isn't fully visible
-        if (!selectedItemVisible) {
-            chipListState.animateScrollToItem(selectedChipIndex)
-        }
     }
 
     var touchX by remember { mutableStateOf(0f) }
@@ -383,20 +331,13 @@ fun HomeScreen(navController: NavController) {
                         }
                     }
                 )
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    itemsIndexed(chipItems) { index, text ->
-                        Chip(
-                            text = text,
-                            isSelected = selectedChipIndex == index,
-                            onClick = { selectedChipIndex = index }
-                        )
-                    }
-                }
+                
+                TabBar(
+                    selectedEvent = selectedEvent,
+                    selectedChipIndex = selectedChipIndex,
+                    onChipSelected = { selectedChipIndex = it },
+                    onChipCountChanged = { chipCount = it }
+                )
             }
         }
     ) { paddingValues ->
@@ -423,7 +364,7 @@ fun HomeScreen(navController: NavController) {
                                     selectedChipIndex--
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 }
-                                deltaX < -50 && selectedChipIndex < chipItems.size - 1 -> {
+                                deltaX < -50 && selectedChipIndex < chipCount - 1 -> {
                                     selectedChipIndex++
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 }
@@ -444,59 +385,10 @@ fun HomeScreen(navController: NavController) {
                     CircularProgressIndicator()
                 }
             } else {
-                // Your main content here
-                Box(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        itemsIndexed(timeSlots) { index, time ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(blockHeight)
-                                    .padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .width(50.dp)
-                                        .height(blockHeight),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = time,
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = Color.Gray,
-                                            lineHeight = 12.sp
-                                        ),
-                                        maxLines = 2
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(8.dp))
-
-                                HorizontalDivider(
-                                    color = Color.Gray,
-                                    thickness = 1.dp,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-                    }
-
-//                    // Overlay Text
-//                    Text(
-//                        text = "Overlay Text",
-//                        modifier = Modifier
-//                            .absoluteOffset(x = 0.dp, y = 0.dp)
-//                            .zIndex(1f),
-//                        style = MaterialTheme.typography.bodySmall.copy(
-//                            color = Color.Black
-//                        )
-//                    )
-                }
+                Timeline(
+                    selectedEvent = selectedEvent,
+                    selectedChipIndex = selectedChipIndex
+                )
             }
         }
     }
