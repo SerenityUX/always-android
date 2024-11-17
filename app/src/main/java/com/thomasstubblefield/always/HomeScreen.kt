@@ -52,6 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
@@ -198,140 +199,160 @@ fun HomeScreen(navController: NavController) {
 
     val timeSlots = generateTimeSlots(startTime, stopTime)
 
+    val chipItems = listOf("Schedule", "You", "Dieter", "Sam", "Dev", "Nila", "Vela", "JC")
+    var selectedChip by remember { mutableStateOf(chipItems.first()) }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { 
-                    Text(
-                        "Always",
-                        style = MaterialTheme.typography.headlineLarge
-                    ) 
-                },
-                actions = {
-                    Box {
-                        IconButton(onClick = { showMenu = !showMenu }) {
-                            if (isLoading) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(32.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                userData?.let { user ->
-                                    ProfilePicture(
-                                        url = user.profile_picture_url,
-                                        name = user.name,
-                                        size = 56.dp
+            Column {
+                TopAppBar(
+                    title = { 
+                        Text(
+                            "Always",
+                            style = MaterialTheme.typography.headlineLarge
+                        ) 
+                    },
+                    actions = {
+                        Box {
+                            IconButton(onClick = { showMenu = !showMenu }) {
+                                if (isLoading) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(32.dp),
+                                        strokeWidth = 2.dp
                                     )
+                                } else {
+                                    userData?.let { user ->
+                                        ProfilePicture(
+                                            url = user.profile_picture_url,
+                                            name = user.name,
+                                            size = 56.dp
+                                        )
+                                    }
                                 }
                             }
-                        }
 
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            modifier = Modifier.width(200.dp)
-                        ) {
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false },
+                                modifier = Modifier.width(200.dp)
+                            ) {
 
-                            DropdownMenuItem(
-                                text = { 
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text("Update Avatar")
-                                        if (isUploadingPhoto) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(16.dp),
-                                                strokeWidth = 2.dp
-                                            )
+                                DropdownMenuItem(
+                                    text = { 
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text("Update Avatar")
+                                            if (isUploadingPhoto) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(16.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                            }
                                         }
-                                    }
-                                },
-                                onClick = {
-                                    if (!isUploadingPhoto) {  // Prevent multiple uploads
-                                        showMenu = false
-                                        photoPickerLauncher.launch("image/*")
-                                    }
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector =Icons.Filled.AccountCircle,
-                                        contentDescription = "Profile Picture"
-                                    )
-                                },
-                                enabled = !isUploadingPhoto  // Disable the button while uploading
-                            )
-                            
-                            DropdownMenuItem(
-                                text = { Text("Swap Events") },
-                                onClick = {
-                                    showMenu = false
-                                    showEventPicker = true
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.SwapHoriz,
-                                        contentDescription = "Swap Events"
-                                    )
-                                }
-                            )
-
-
-
-                            DropdownMenuItem(
-                                text = { Text("Logout") },
-                                onClick = {
-                                    showMenu = false
-                                    scope.launch {
-                                        tokenManager.deleteToken()
-                                        tokenManager.clearSelectedEventId()
-                                        navController.navigate("onboarding") {
-                                            popUpTo(0) { inclusive = true }
+                                    },
+                                    onClick = {
+                                        if (!isUploadingPhoto) {  // Prevent multiple uploads
+                                            showMenu = false
+                                            photoPickerLauncher.launch("image/*")
                                         }
-                                    }
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Logout,
-                                        contentDescription = "Logout"
-                                    )
-                                }
-                            )
-
-                            DropdownMenuItem(
-                                text = { 
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            "Delete Account",
-                                            color = Color.Red
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector =Icons.Filled.AccountCircle,
+                                            contentDescription = "Profile Picture"
                                         )
-                                        if (isDeletingAccount) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(16.dp),
-                                                strokeWidth = 2.dp
-                                            )
-                                        }
+                                    },
+                                    enabled = !isUploadingPhoto  // Disable the button while uploading
+                                )
+                                
+                                DropdownMenuItem(
+                                    text = { Text("Swap Events") },
+                                    onClick = {
+                                        showMenu = false
+                                        showEventPicker = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.SwapHoriz,
+                                            contentDescription = "Swap Events"
+                                        )
                                     }
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    showDeleteConfirmation = true
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Delete Account",
-                                        tint = Color.Red
-                                    )
-                                }
-                            )
+                                )
+
+
+
+                                DropdownMenuItem(
+                                    text = { Text("Logout") },
+                                    onClick = {
+                                        showMenu = false
+                                        scope.launch {
+                                            tokenManager.deleteToken()
+                                            tokenManager.clearSelectedEventId()
+                                            navController.navigate("onboarding") {
+                                                popUpTo(0) { inclusive = true }
+                                            }
+                                        }
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Logout,
+                                            contentDescription = "Logout"
+                                        )
+                                    }
+                                )
+
+                                DropdownMenuItem(
+                                    text = { 
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                "Delete Account",
+                                                color = Color.Red
+                                            )
+                                            if (isDeletingAccount) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier.size(16.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                            }
+                                        }
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        showDeleteConfirmation = true
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete Account",
+                                            tint = Color.Red
+                                        )
+                                    }
+                                )
+                            }
                         }
                     }
+                )
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(chipItems.size) { index ->
+                        val chip = chipItems[index]
+                        Chip(
+                            text = chip,
+                            isSelected = chip == selectedChip,
+                            onClick = { selectedChip = chip }
+                        )
+                    }
                 }
-            )
+            }
         }
     ) { paddingValues ->
         Box(
@@ -533,4 +554,22 @@ private suspend fun uploadProfilePicture(file: File, token: String): String = wi
     }
 
     response.body?.string() ?: throw Exception("Empty response")
+}
+
+@Composable
+fun Chip(text: String, isSelected: Boolean, onClick: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(2.dp),
+        shape = CircleShape,
+        color = if (isSelected) Color.Black else Color.Transparent,
+        border = if (!isSelected) BorderStroke(1.dp, Color.Gray) else null
+    ) {
+        Text(
+            text = text,
+            color = if (isSelected) Color.White else Color.Gray,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        )
+    }
 } 
