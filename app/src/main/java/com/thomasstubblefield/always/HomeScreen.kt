@@ -195,6 +195,8 @@ fun HomeScreen(navController: NavController) {
     }
 
     var touchX by remember { mutableStateOf(0f) }
+    var touchY by remember { mutableStateOf(0f) }
+    var lastMoveTime by remember { mutableStateOf(0L) }
 
     Scaffold(
         topBar = {
@@ -355,23 +357,39 @@ fun HomeScreen(navController: NavController) {
                     when (event.action) {
                         MotionEvent.ACTION_DOWN -> {
                             touchX = event.x
+                            touchY = event.y
+                            lastMoveTime = System.currentTimeMillis()
                             true
                         }
                         MotionEvent.ACTION_UP -> {
                             val deltaX = event.x - touchX
+                            val deltaY = event.y - touchY
+                            val moveTime = System.currentTimeMillis() - lastMoveTime
+                            
+                            // Calculate horizontal vs vertical ratio
+                            val horizontalness = abs(deltaX) / (abs(deltaY) + 0.01f) // Avoid div by 0
+                            
+                            // Calculate velocity (pixels per millisecond)
+                            val velocity = abs(deltaX) / (moveTime + 0.01f)
+
+                            // Only trigger if:
+                            // 1. The swipe is long enough (150px)
+                            // 2. The horizontal movement is at least 2.5x the vertical movement
+                            // 3. The velocity is fast enough (0.5 pixels per millisecond)
                             when {
-                                deltaX > 50 && selectedChipIndex > 0 -> {
-                                    selectedChipIndex--
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                }
-                                deltaX < -50 && selectedChipIndex < chipCount - 1 -> {
-                                    selectedChipIndex++
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                abs(deltaX) > 150 && horizontalness > 2.5f && velocity > 0.5f -> {
+                                    if (deltaX > 0 && selectedChipIndex > 0) {
+                                        selectedChipIndex--
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    } else if (deltaX < 0 && selectedChipIndex < chipCount - 1) {
+                                        selectedChipIndex++
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
                                 }
                             }
-                            true
+                            false // Let other touch handlers process the event
                         }
-                        else -> true
+                        else -> false // Let other touch handlers process the event
                     }
                 }
         ) {

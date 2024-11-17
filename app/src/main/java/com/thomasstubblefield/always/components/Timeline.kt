@@ -3,6 +3,7 @@ package com.thomasstubblefield.always.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +19,11 @@ import java.time.format.DateTimeFormatter
 import com.thomasstubblefield.always.Event
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.zIndex
 
 @Composable
 fun Timeline(
@@ -25,6 +31,9 @@ fun Timeline(
     selectedChipIndex: Int,
     blockHeight: Dp = 91.dp
 ) {
+    // Add platform density
+    val density = LocalDensity.current
+
     fun generateTimeSlots(startTime: LocalDateTime, stopTime: LocalDateTime): List<String> {
         val formatter = DateTimeFormatter.ofPattern("EEE\nh a")
         val times = mutableListOf<String>()
@@ -56,80 +65,85 @@ fun Timeline(
 
     val timeSlots = generateTimeSlots(startTime, stopTime)
 
+    val listState = rememberLazyListState()
+    val totalHeight = blockHeight * timeSlots.size
+
     Box(modifier = Modifier.fillMaxSize()) {
+        // Container that defines the total scrollable height
         LazyColumn(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            state = listState
         ) {
-            itemsIndexed(timeSlots) { index, time ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(blockHeight)
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
+            item {
+                Box(modifier = Modifier.height(totalHeight)) {
+                    // Time slots layer
+                    Column(
                         modifier = Modifier
-                            .width(50.dp)
-                            .height(blockHeight),
-                        contentAlignment = Alignment.Center
+                            .fillMaxSize()
+                            .offset(y = (-24).dp)
                     ) {
-                        Text(
-                            text = time,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color.Gray,
-                                lineHeight = 12.sp
-                            ),
-                            maxLines = 2
-                        )
+                        timeSlots.forEach { time ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(blockHeight)
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(50.dp)
+                                        .height(blockHeight),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = time,
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Color.Gray.copy(alpha = 0.8f),
+                                            lineHeight = 12.sp
+                                        ),
+                                        maxLines = 2
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                HorizontalDivider(
+                                    color = Color.Gray,
+                                    thickness = 1.dp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
                     }
 
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    HorizontalDivider(
-                        color = Color.Gray,
-                        thickness = 1.dp,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-
-        selectedEvent?.value?.calendar_events?.forEach { calendarEvent ->
-            val eventStart = LocalDateTime.parse(calendarEvent.startTime.removeSuffix("Z"))
-            val eventEnd = LocalDateTime.parse(calendarEvent.endTime.removeSuffix("Z"))
-            
-            val hoursSinceStart = ChronoUnit.HOURS.between(startTime, eventStart).toFloat()
-            val eventDurationHours = ChronoUnit.HOURS.between(eventStart, eventEnd).toFloat()
-            
-            val topPadding = (hoursSinceStart * blockHeight.value).dp + 46.dp
-            val eventHeight = blockHeight * eventDurationHours
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 64.dp, end = 16.dp)
-                    .offset(y = topPadding)
-                    .height(eventHeight)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0293D4))
-                    .padding(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = calendarEvent.title.ifEmpty { "Untitled Event" },
-                        style = MaterialTheme.typography.titleMedium,
-                        color = Color.White
-                    )
-                    
-                    Text(
-                        text = "${eventStart.format(DateTimeFormatter.ofPattern("h:mm a"))} - ${eventEnd.format(DateTimeFormatter.ofPattern("h:mm a"))}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White
-                    )
+                    // Events layer
+                    selectedEvent?.value?.calendar_events?.forEach { calendarEvent ->
+                        val eventStart = LocalDateTime.parse(calendarEvent.startTime.removeSuffix("Z"))
+                        val eventEnd = LocalDateTime.parse(calendarEvent.endTime.removeSuffix("Z"))
+                        
+                        val hoursFromStart = ChronoUnit.HOURS.between(
+                            startTime.truncatedTo(ChronoUnit.HOURS),
+                            eventStart.truncatedTo(ChronoUnit.HOURS)
+                        ).toFloat()
+                        
+                        val eventDurationHours = ChronoUnit.HOURS.between(eventStart, eventEnd).toFloat()
+                        
+                        val eventColor = calendarEvent.color?.let { colorString ->
+                            val (r, g, b) = colorString.split(",").map { it.trim().toInt() }
+                            Color(r, g, b)
+                        } ?: Color(2, 147, 212)
+                        
+                        CalendarEventItem(
+                            title = calendarEvent.title,
+                            startTime = eventStart,
+                            endTime = eventEnd,
+                            color = eventColor,
+                            blockHeight = blockHeight,
+                            hoursFromStart = hoursFromStart,
+                            eventDurationHours = eventDurationHours
+                        )
+                    }
                 }
             }
         }
